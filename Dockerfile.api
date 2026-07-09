@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim-bookworm
+
+# Non-root runtime user
+RUN groupadd --system --gid 1001 apiuser && useradd --system --uid 1001 --gid apiuser --home /home/apiuser --create-home apiuser
+
+WORKDIR /app
+ENV PYTHONPATH=/app PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+# Install serving deps only (K12: no torch)
+COPY --chown=apiuser:apiuser requirements-api.txt .
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements-api.txt
+
+# Application code
+COPY --chown=apiuser:apiuser src/ ./src/
+
+USER apiuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status==200 else 1)"
+
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
