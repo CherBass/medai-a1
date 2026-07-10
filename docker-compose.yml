@@ -41,6 +41,35 @@ services:
       - prometheus-data:/prometheus
     networks: [medai]
 
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: medai-a1-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    depends_on:
+      - prometheus
+    networks: [medai]
+
+  evidently-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.evidently
+    image: medai-a1/evidently-worker:local
+    container_name: medai-a1-evidently
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    networks: [medai]
+
 networks:
   medai:
     driver: bridge
@@ -48,3 +77,4 @@ networks:
 volumes:
   mlflow-data:
   prometheus-data:
+  grafana-data:

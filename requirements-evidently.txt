@@ -1,0 +1,4 @@
+evidently==0.4.*
+prometheus-client==0.20.*
+numpy<2.0
+pandas==2.2.*
