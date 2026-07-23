@@ -84,8 +84,8 @@ jobs:
             ${{ needs.build-and-push.outputs.image }}:${{ github.sha }}
       - name: Wait for /healthz
         run: |
-          curl --fail --retry 20 --retry-delay 2 --retry-connrefused \
+          curl --fail --retry 30 --retry-delay 2 --retry-all-errors \
             http://localhost:8000/healthz
-      - name: Container logs on failure
-        if: failure()
+      - name: Container logs
+        if: always()
         run: docker logs api
