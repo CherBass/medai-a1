@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUFF_EXCLUDE: _bmad,_bmad-output,docs,grafana,prometheus,models
+
+jobs:
+  lint-and-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check --exclude "$RUFF_EXCLUDE" .
+      - run: uv run ruff format --check --exclude "$RUFF_EXCLUDE" .
+      - run: uv run mypy src
+
+  test:
+    needs: lint-and-type
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run pytest -q --cov=src --cov-report=xml
+
+  build-and-push:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.repo.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: repo
+        run: |
+          lc="${GITHUB_REPOSITORY,,}"
+          echo "image=ghcr.io/${lc}/api" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: |
+            ${{ steps.repo.outputs.image }}:${{ github.sha }}
+            ${{ steps.repo.outputs.image }}:latest
+
+  smoke-test:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run API container
+        run: |
+          docker run -d --name api -p 8000:8000 \
+            ${{ needs.build-and-push.outputs.image }}:${{ github.sha }}
+      - name: Wait for /healthz
+        run: |
+          curl --fail --retry 20 --retry-delay 2 --retry-connrefused \
+            http://localhost:8000/healthz
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs api

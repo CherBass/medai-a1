@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# BMad-Method install (regenerate with: npx bmad-method install --yes --tools claude-code --set bmm.project_knowledge=research --directory .)
+_bmad/
+_bmad-output/
+.claude/skills/bmad-*/
+.claude
+
+# Test / coverage artifacts
+.coverage
+htmlcov/

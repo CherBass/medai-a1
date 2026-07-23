@@ -24,22 +24,26 @@ ITERATIONS = Gauge(
 
 def synth_reference(n: int = 500, seed: int = 42) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
-    return pd.DataFrame({
-        "feature_a": rng.normal(0, 1, n),
-        "feature_b": rng.uniform(0, 10, n),
-        "feature_c": rng.exponential(2, n),
-    })
+    return pd.DataFrame(
+        {
+            "feature_a": rng.normal(0, 1, n),
+            "feature_b": rng.uniform(0, 10, n),
+            "feature_c": rng.exponential(2, n),
+        }
+    )
 
 
 def synth_current(step: int, n: int = 500) -> pd.DataFrame:
     """Drift factor oscillates: sin(step/3)*3 — period ~19 steps ~10 min."""
     rng = np.random.default_rng()
     drift = math.sin(step / 3) * 3
-    return pd.DataFrame({
-        "feature_a": rng.normal(drift, 1, n),
-        "feature_b": rng.uniform(0, 10 + abs(drift), n),
-        "feature_c": rng.exponential(2, n),
-    })
+    return pd.DataFrame(
+        {
+            "feature_a": rng.normal(drift, 1, n),
+            "feature_b": rng.uniform(0, 10 + abs(drift), n),
+            "feature_c": rng.exponential(2, n),
+        }
+    )
 
 
 def compute_drift(reference: pd.DataFrame, current: pd.DataFrame) -> dict:
